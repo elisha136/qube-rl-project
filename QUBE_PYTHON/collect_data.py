@@ -1,63 +1,32 @@
 import time
 import csv
-import random
-
 import control
 
-def collect_data(
-    filename="data.csv",
-    duration=10.0,   # total time in seconds
-    dt=0.01,         # time step in seconds
-    voltage_range=1.0
-):
+def collect_data(duration=5.0, dt=0.02, filename="my_data1.csv", motor_voltage=1.0):
     """
-    Collect data from the QUBE by sending random motor voltages in
-    [-voltage_range, +voltage_range], logging sensor data to a CSV file.
+    Collect data for 'duration' seconds at intervals of 'dt'.
+    Set a motor voltage, read angles, rpm, current, and save to CSV.
     """
-    # Ensure serial is initialized
     control.init_serial_connection()
+    control.reset_encoders()
 
     start_time = time.time()
-
-    # Open the CSV file for writing
-    with open(filename, 'w', newline='') as f:
+    with open(filename, "w", newline="") as f:
         writer = csv.writer(f)
-        # Write header row
-        writer.writerow(["time", "voltage", 
-                         "motor_angle", "pendulum_angle", "rpm"])
+        writer.writerow(["time", "motor_angle", "pendulum_angle", "rpm", "current"])
 
-        # Loop until duration is exceeded
         while (time.time() - start_time) < duration:
-            # 1) Generate a random motor voltage within [-voltage_range, voltage_range]
-            voltage = random.uniform(-voltage_range, voltage_range)
-
-            # 2) Send the motor voltage
-            control.set_motor_voltage(voltage)
-
-            # 3) Wait for dt
+            # set_motor_voltage() returns (motor_angle, pendulum_angle, rpm, current)
+            motor_angle, pendulum_angle, rpm, current = control.set_motor_voltage(motor_voltage)
+            t = time.time() - start_time
+            writer.writerow([f"{t:.3f}", f"{motor_angle:.3f}",
+                             f"{pendulum_angle:.3f}", f"{rpm:.3f}", f"{current:.3f}"])
             time.sleep(dt)
 
-            # 4) Read sensor data
-            motor_angle = control.get_motor_angle()
-            pendulum_angle = control.get_pendulum_angle()
-            rpm = control.get_rpm()
-
-            # 5) Write row to CSV
-            t = time.time() - start_time
-            writer.writerow([f"{t:.3f}", f"{voltage:.3f}", 
-                             f"{motor_angle:.3f}", f"{pendulum_angle:.3f}", 
-                             f"{rpm:.3f}"])
-
-    # After data collection, set motor voltage to 0 for safety
+    # Stop the motor at the end
     control.set_motor_voltage(0.0)
-
-    print(f"Data collection complete. File saved to: {filename}")
+    control.close_serial_connection()
+    print(f"Data collection complete. Saved to {filename}")
 
 if __name__ == "__main__":
-    # Example usage:
-    collect_data(
-        filename="data.csv",
-        duration=10.0,
-        dt=0.02,
-        voltage_range=1.0
-    )
+    collect_data(duration=5.0, dt=0.02, filename="my_data1.csv", motor_voltage=1.0)
